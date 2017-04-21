@@ -1,5 +1,7 @@
-import tensorflow as tf2
+import tensorflow as tf
 from keras.models import Sequential
+from keras.layers import Dense, Activation
+from keras.layers import Input
 
 # pull MNIST dataset
 from tensorflow.examples.tutorials.mnist import input_data
@@ -10,7 +12,7 @@ x = tf.placeholder(tf.float32, shape=[None, 784]) # placeholder for input data (
 y = tf.placeholder(tf.float32, shape=[None, 10]) # placeholder for label data
 
 model=Sequential()
-model.add(Dense(200))
+model.add(Dense(200,input_shape=(784,)))
 model.add(Activation('sigmoid')) 
 
 #note the activation can be folded into the layer as follow
@@ -29,9 +31,14 @@ sess.run(tf.global_variables_initializer()) # variable initialization step
 
 train_steps = 2000
 batch_size = 50
+avg_train_loss=0
+display_step=20
 for i in range(train_steps):
     batch_x, batch_y = data.train.next_batch(batch_size) # collect next batch of input data and labels
-    sess.run(backprop, feed_dict={x: batch_x, y: batch_y})
+    _,loss=sess.run([backprop,cross_entropy], feed_dict={x: batch_x, y: batch_y})
+    avg_train_loss=avg_train_loss*i/(i+1) + loss/(i+1)
+    if i%display_step==0:
+	    print ('average loss:',avg_train_loss)
 
 #declare accuracy operations
 correct = tf.equal(tf.argmax(y, 1), tf.argmax(y_predict, 1))

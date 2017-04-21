@@ -28,9 +28,14 @@ sess.run(tf.global_variables_initializer()) # variable initialization step
 
 train_steps = 2000
 batch_size = 50
+avg_train_loss=0
+display_step=100
 for i in range(train_steps):
     batch_x, batch_y = data.train.next_batch(batch_size) # collect next batch of input data and labels
-    sess.run(backprop, feed_dict={x: batch_x, y: batch_y})
+    _,loss=sess.run([backprop,cross_entropy], feed_dict={x: batch_x, y: batch_y})
+    avg_train_loss=avg_train_loss*i/(i+1) + loss/(i+1)
+    if i%display_step==0:
+	    print ('average loss:',avg_train_loss)
 
 # testing accuracy of trained neural network
 print(sess.run(accuracy, feed_dict={x: data.test.images, y: data.test.labels}))
