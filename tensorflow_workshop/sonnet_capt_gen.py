@@ -100,7 +100,7 @@ class Caption_Generator():
 
         #         rnn_output.append(tf.expand_dims(out,1))
         # rnn_output=tf.concat(rnn_output,axis=1)
-        # rnn_output=rnn_output[:,:-1,:]
+        rnn_output=rnn_output[:,:-1,:]
         rnn_output=tf.reshape(rnn_output,[self.batch_size*self.n_lstm_steps,-1])
         encoded_output=tf.matmul(rnn_output,self.word_encoding)+self.word_encoding_bias
         xentropy=tf.nn.sparse_softmax_cross_entropy_with_logits(logits=encoded_output,labels=tf.reshape(caption_placeholder,[-1]))
