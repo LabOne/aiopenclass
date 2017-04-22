@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense, Activation
@@ -21,7 +22,7 @@ model.add(Dense(10))
 y_predict=model(x)
 
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_predict))
-backprop = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy) # optimizer backpropagation step
+backprop = tf.train.GradientDescentOptimizer(learning_rate=0.5).minimize(cross_entropy) # optimizer backpropagation step
 
 
 

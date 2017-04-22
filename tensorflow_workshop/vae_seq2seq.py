@@ -25,16 +25,6 @@ class Caption_Generator():
         self.batch_size = batch_size
         self.n_lstm_steps = n_lstm_steps
         self.n_words = n_words
-        
-        if from_image: 
-            with open(vgg_path,'rb') as f:
-                fileContent = f.read()
-                graph_def = tf.GraphDef()
-                graph_def.ParseFromString(fileContent)
-            self.images = tf.placeholder("float32", [1, 224, 224, 3])
-            tf.import_graph_def(graph_def, input_map={"images":self.images})
-            graph = tf.get_default_graph()
-            self.sess = tf.InteractiveSession(graph=graph)
 
         self.from_image=from_image
 
@@ -43,13 +33,17 @@ class Caption_Generator():
             self.word_embedding = tf.Variable(tf.random_uniform([self.n_words, self.dim_embed], -0.1, 0.1), name='word_embedding')
 
         self.embedding_bias = tf.Variable(tf.zeros([dim_embed]), name='embedding_bias')
+
+        with tf.device("/cpu:0"):
+            self.decoder_embedding = tf.Variable(tf.random_uniform([self.n_words, self.dim_embed], -0.1, 0.1), name='word_embedding')
+
+        self.decoder_embedding_bias = tf.Variable(tf.zeros([dim_embed]), name='embedding_bias')
         
-        # declare the LSTM itself
-        self.lstm = snt.LSTM(dim_hidden,name='caption_decoder')
-        
-        # declare the variables to be used to embed the image feature embedding to the word embedding space
-        self.img_embedding = tf.Variable(tf.random_uniform([dim_in, dim_hidden], -0.1, 0.1), name='img_embedding')
-        self.img_embedding_bias = tf.Variable(tf.zeros([dim_hidden]), name='img_embedding_bias')
+        # declare the encoder LSTM 
+        self.lstm = snt.LSTM(dim_hidden,name='caption_encoder')
+
+        # declare the decoder LSTM
+        self.lstm_decoder = snt.LSTM(dim_hidden,name='caption_decoder')
 
         # declare the variables to go from an LSTM output to a word encoding output
         self.word_encoding = tf.Variable(tf.random_uniform([dim_hidden, n_words], -0.1, 0.1), name='word_encoding')
@@ -67,9 +61,6 @@ class Caption_Generator():
         caption_placeholder = tf.placeholder(tf.int32, [self.batch_size, self.n_lstm_steps])
         mask = tf.placeholder(tf.float32, [self.batch_size, self.n_lstm_steps])
         
-        # getting an initial LSTM embedding from our image_imbedding
-        image_embedding = tf.matmul(img, self.img_embedding) + self.img_embedding_bias
-        
         # setting initial state of our LSTM
         # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
         flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
@@ -77,51 +68,87 @@ class Caption_Generator():
             word_embeddings=tf.nn.embedding_lookup(self.word_embedding,flat_caption_placeholder)
         word_embeddings+=self.embedding_bias
         word_embeddings=tf.reshape(word_embeddings,[self.batch_size,self.n_lstm_steps,-1])
-        image_embedding=tf.expand_dims(image_embedding,1)
-        input_embeddings=tf.concat([image_embedding,word_embeddings],axis=1)
-        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,time_major=False)
-        # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
-        # rnn_output=[]
-        # with tf.variable_scope("RNN"):
-        #     for i in range(self.n_lstm_steps): 
-        #         if i > 0:
-        #            # if this isn’t the first iteration of our LSTM we need to get the word_embedding corresponding
-        #            # to the (i-1)th word in our caption 
-                    
-        #             current_embedding = word_embeddings[:,i-1,:]
-        #                 # current_embedding = tf.nn.embedding_lookup(self.word_embedding, caption_placeholder[:,i-1]) + self.embedding_bias
-        #         else:
-        #              #if this is the first iteration of our LSTM we utilize the embedded image as our input 
-        #             current_embedding = image_embedding
-        #         if i > 0: 
-        #             # allows us to reuse the LSTM tensor variable on each iteration
-        #             tf.get_variable_scope().reuse_variables()
 
-        #         out, state = self.lstm(current_embedding, state)
+        #strip off zero start token
+        input_embeddings=word_embeddings[:,1:,:]
+        #get sequence length for dynamic unrolling
+        seqlen=tf.sum(mask,axis=-1)
+        #subtract one due to zero end token
+        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,seqeuence_lenth=seqlen-1,time_major=False)
 
-        #         rnn_output.append(tf.expand_dims(out,1))
-        # rnn_output=tf.concat(rnn_output,axis=1)
+        #strip off zero end token
+        rnn_output=rnn_output[:,:-1,:]
+
+        ix_range=tf.range(0,self.batch_size,1)
+        ixs=tf.expand_dims(ix_range,-1)
+        to_cat=tf.expand_dims(seqlen-2,-1)
+        gather_inds=tf.concat([ixs,to_cat],axis=-1)
+
+        outs=tf.gather_nd(encoder_outs,gather_inds)
+
+        middle_embedding,middle_embedding_KLD_loss=self.get_middle_embedding(outs)
+        total_loss=tf.reduce_mean(middle_embedding_KLD_loss)
+
+        with tf.device('/cpu:0'):
+            word_embeddings=tf.nn.embedding_lookup(self.decoder_embedding,flat_caption_placeholder)
+        word_embeddings+=self.decoder_embedding_bias
+        word_embeddings=tf.reshape(word_embeddings,[self.batch_size,self.n_lstm_steps,-1])
+
+        middle_embedding=tf.expand_dims(middle_embedding,1)
+        input_embeddings=tf.concat([middle_embedding,word_embeddings],axis=1)
+
+        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,sequence_length=seqlen,time_major=False)
+
         rnn_output=rnn_output[:,:-1,:]
         rnn_output=tf.reshape(rnn_output,[self.batch_size*self.n_lstm_steps,-1])
+
         encoded_output=tf.matmul(rnn_output,self.word_encoding)+self.word_encoding_bias
+
         xentropy=tf.nn.sparse_softmax_cross_entropy_with_logits(logits=encoded_output,labels=tf.reshape(caption_placeholder,[-1]))
         masked_xentropy=tf.multiply(tf.reshape(xentropy,[self.batch_size,-1])[:,1:],mask[:,1:])
-        total_loss=tf.reduce_sum(masked_xentropy)/tf.reduce_sum(mask[:,1:])
+
+        total_loss+=tf.reduce_sum(masked_xentropy)/tf.reduce_sum(mask[:,1:])
+
         return total_loss, img,  caption_placeholder, mask
 
     def build_generator(self, maxlen, batchsize=1,from_image=False):
         #same setup as `build_model` function
 
         img = tf.placeholder(tf.float32, [self.batch_size, self.dim_in])
-        image_embedding = tf.matmul(img, self.img_embedding) + self.img_embedding_bias
+
         state = self.lstm.zero_state(batchsize,dtype=tf.float32)
+
+        flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
+        with tf.device('/cpu:0'):
+            word_embeddings=tf.nn.embedding_lookup(self.word_embedding,flat_caption_placeholder)
+        word_embeddings+=self.embedding_bias
+        word_embeddings=tf.reshape(word_embeddings,[self.batch_size,self.n_lstm_steps,-1])
+
+        #strip off zero start token
+        input_embeddings=word_embeddings[:,1:,:]
+        #get sequence length for dynamic unrolling
+        seqlen=tf.sum(mask,axis=-1)
+        #subtract one due to zero end token
+        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,seqeuence_lenth=seqlen-1,time_major=False)
+
+        #strip off zero end token
+        rnn_output=rnn_output[:,:-1,:]
+
+        ix_range=tf.range(0,self.batch_size,1)
+        ixs=tf.expand_dims(ix_range,-1)
+        to_cat=tf.expand_dims(seqlen-2,-1)
+        gather_inds=tf.concat([ixs,to_cat],axis=-1)
+
+        outs=tf.gather_nd(encoder_outs,gather_inds)
+
+        middle_embedding,middle_embedding_KLD_loss=self.get_middle_embedding(outs)
 
         #declare list to hold the words of our generated captions
         all_words = []
         with tf.variable_scope("RNN"):
             # in the first iteration we have no previous word, so we directly pass in the image embedding
             # and set the `previous_word` to the embedding of the start token ([0]) for the future iterations
-            output, state = self.lstm(image_embedding, state)
+            output, state = self.lstm(middle_embedding, state)
             previous_word = tf.nn.embedding_lookup(self.word_embedding, [0]) + self.embedding_bias
 
             for i in range(maxlen):
@@ -144,48 +171,31 @@ class Caption_Generator():
         self.img=img
         self.all_words=all_words
         return img, all_words
-    def crop_image(self,x, target_height=227, target_width=227, as_float=True,from_path=True):
-        image = (x)
-        if from_path==True:
-            image=cv2.imread(image)
-        if as_float:
-            image = image.astype(np.float32)
+    def get_middle_embedding(self,outs):    
+        mean=tf.Variable(tf.random_uniform([self.dim_hidden,self.dim_in],-.1,.1),name='mean_out')
+        mean_b=tf.Variable(tf.zeros([self.dim_in]),name='mean_bias')
 
-        if len(image.shape) == 2:
-            image = np.tile(image[:,:,None], 3)
-        elif len(image.shape) == 4:
-            image = image[:,:,:,0]
+        log_sigma=tf.Variable(tf.random_uniform([self.dim_hidden,self.dim_in],-.1,.1),name='log_sigma_out')
+        log_sigma_b=tf.Variable(tf.zeros([self.dim_in]),name='log_sigma_bias')
 
-        height, width, rgb = image.shape
-        if width == height:
-            resized_image = cv2.resize(image, (target_height,target_width))
+        mu=tf.matmul(outs,mean)+mean_b
+        logvar=tf.matmul(outs,log_sigma)+log_sigma_b
+        epsilon=tf.random_normal(tf.shape(logvar),name='epsilon')
+        std=tf.exp(.5*logvar)
+        z=mu+tf.multiply(std,epsilon)
 
-        elif height < width:
-            resized_image = cv2.resize(image, (int(width * float(target_height)/height), target_width))
-            cropping_length = int((resized_image.shape[1] - target_height) / 2)
-            resized_image = resized_image[:,cropping_length:resized_image.shape[1] - cropping_length]
+        KLD = -0.5 * tf.reduce_sum(1 + logvar - tf.pow(mu, 2) - tf.exp(logvar),axis=-1)
 
-        else:
-            resized_image = cv2.resize(image, (target_height, int(height * float(target_width) / width)))
-            cropping_length = int((resized_image.shape[0] - target_width) / 2)
-            resized_image = resized_image[cropping_length:resized_image.shape[0] - cropping_length,:]
+        middle_embedding=tf.Variable(tf.random_uniform([self.dim_in,self.dim_hidden],-.1,.1),name='middle_embedding')
+        middle_embedding_bias=tf.Variable(tf.zeros([self.dim_hidden]),name='middle_embedding_bias')
 
-        return cv2.resize(resized_image, (target_height, target_width))
+        middle_embedding=tf.matmul(z,middle_embedding)+middle_embedding_bias
+        return middle_embedding,KLD
 
-    def read_image(self,path=None):
-        if path is None:
-            path=test_image_path
-        img = crop_image(path, target_height=224, target_width=224)
-        if img.shape[2] == 4:
-            img = img[:,:,:3]
-
-        img = img[None, ...]
-        return img
 
     def get_caption(self,x=None):
-        feat = read_image(x)
-        fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
-        generated_word_index= self.sess.run(self.all_words, feed_dict={self.img:fc7})
+        
+        generated_word_index= self.sess.run(self.generated_words, feed_dict={self.img:fc7})
         generated_word_index = np.hstack(generated_word_index)
         generated_words = [ixtoword[x] for x in generated_word_index]
         punctuation = np.argmax(np.array(generated_words) == '.')+1
