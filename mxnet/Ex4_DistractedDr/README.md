@@ -7,10 +7,10 @@ Ex4_distracted_drivers_cpu.ipynb: the major notebook file using CPU describing e
 
 The python files include the following codes: 
 
-1)dataSep.py: read the origical image files and separate them into the training and test datasets and save both respectively. You can use the command to setup the parameters including path: python  dataSep.py --INPUT ......
+1) dataSep.py: read the origical image files and separate them into the training and test datasets and save both respectively. You can use the command to setup the parameters including path: python  dataSep.py --INPUT ......
 Use python dataSep --help to know more ; 
 
-2)cnndd.py: library of CNN definition for this problem;
+2) cnndd.py: library of CNN definition for this problem;
 
 3) train.py: training code ; 
 
@@ -19,3 +19,5 @@ Use python dataSep --help to know more ;
 5) test_random.py: randomly select several validation photoes to test the CNN; 
 
 6) fullymodel-0050.params and fullymodel-symbol.json: files for a pretrained model using AWS for this solution. 
+
+
