@@ -4,7 +4,6 @@ This path includes a solution for the Kaggle problem, State Farm Distracted Driv
 
 
 Ex4_distracted_drivers_cpu.ipynb: the major notebook file using CPU describing every step for this problem. 
-Ex4_distracted_drivers_gpu.ipynb: the major notebook file using GPU describing every step for this problem.
 
 The python files include the following codes: 
 
