@@ -42,7 +42,7 @@ backprop = tf.train.GradientDescentOptimizer(learning_rate)
 ##########################
 
 tvars=tf.trainable_variables()
-grads,_=tf.clip_by_global_norm(tf.gradients(cross_entropy,tvars))
+grads,_=tf.clip_by_global_norm(tf.gradients(cross_entropy,tvars),.1)
 
 backprop= backprop.apply_gradients(zip(grads,vars))
 
