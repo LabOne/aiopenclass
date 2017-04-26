@@ -16,6 +16,7 @@ from collections import Counter
 import sonnet as snt
 test_image_path='./data/acoustic-guitar-player.jpg'
 vgg_path='./data/vgg16.tfmodel'
+test_feat_path='./data/test_feat_path'
 class Caption_Generator():
     def __init__(self, dim_in, dim_embed, dim_hidden, batch_size, n_lstm_steps, n_words, init_b=None,from_image=False):
 
@@ -183,8 +184,9 @@ class Caption_Generator():
         return img
 
     def get_caption(self,x=None):
-        feat = read_image(x)
-        fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
+        if x is None:
+            x=test_feat_path
+        fc7=np.load(x)
         generated_word_index= self.sess.run(self.all_words, feed_dict={self.img:fc7})
         generated_word_index = np.hstack(generated_word_index)
         generated_words = [ixtoword[x] for x in generated_word_index]

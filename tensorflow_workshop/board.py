@@ -3,7 +3,7 @@ import tensorflow as tf
 
 # pull MNIST dataset
 from tensorflow.examples.tutorials.mnist import input_data
-data = input_data.read_data_sets('MNIST_data', one_hot=True)
+data = input_data.read_data_sets('/input/mnist', one_hot=True)
 
 # construction phase
 x = tf.placeholder(tf.float32, shape=[None, 784]) # placeholder for input data (images)
@@ -32,7 +32,7 @@ with tf.name_scope('eval'):
 # execution phase
 sess = tf.Session()
 merged = tf.summary.merge_all() # compile all summaries
-writer = tf.summary.FileWriter("graphs", sess.graph) # writer for events file (graph and learning visualization)
+writer = tf.summary.FileWriter("/tmp/tensorflow", sess.graph) # writer for events file (graph and learning visualization)
 sess.run(tf.global_variables_initializer()) # variable initialization step
 
 train_steps = 20000

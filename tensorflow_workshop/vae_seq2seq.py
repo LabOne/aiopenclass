@@ -72,9 +72,9 @@ class Caption_Generator():
         #strip off zero start token
         input_embeddings=word_embeddings[:,1:,:]
         #get sequence length for dynamic unrolling
-        seqlen=tf.sum(mask,axis=-1)
+        seqlen=tf.cast(tf.reduce_sum(mask,axis=-1),dtype=tf.int32)
         #subtract one due to zero end token
-        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,seqeuence_lenth=seqlen-1,time_major=False)
+        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,sequence_length=seqlen-1,time_major=False)
 
         #strip off zero end token
         rnn_output=rnn_output[:,:-1,:]
@@ -84,7 +84,7 @@ class Caption_Generator():
         to_cat=tf.expand_dims(seqlen-2,-1)
         gather_inds=tf.concat([ixs,to_cat],axis=-1)
 
-        outs=tf.gather_nd(encoder_outs,gather_inds)
+        outs=tf.gather_nd(rnn_output,gather_inds)
 
         middle_embedding,middle_embedding_KLD_loss=self.get_middle_embedding(outs)
         total_loss=tf.reduce_mean(middle_embedding_KLD_loss)
