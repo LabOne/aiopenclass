@@ -35,3 +35,9 @@ Example to use sonnet to perform object oriented approach to LSTM variable reloa
 
 ### vae_seq2seq.py
 Using Variational Autoencoder to perform unsupervised learning of text sequences.
+
+### model_serve.py + main.cc
+Walkthrough of how to serve tensorflow model on a gRPC server endpoint. Also includes example of how to use tensorflow api for protobuf serialization
+
+### train_distributed.py
+Walkthrough of how to train a blackbox neural net model across multiple GPUs with data parallelism.
