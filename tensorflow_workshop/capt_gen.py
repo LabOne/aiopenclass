@@ -68,26 +68,24 @@ class Caption_Generator():
         # getting an initial LSTM embedding from our image_imbedding
         image_embedding = tf.matmul(img, self.img_embedding) + self.img_embedding_bias
         
-        # setting initial state of our LSTM
-        # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
+        #flatten timeseries to get all word embeddings at once
         flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
+        #leverage one-hot sparsity to lookup embeddings fast
         with tf.device('/cpu:0'):
             word_embeddings=tf.nn.embedding_lookup(self.word_embedding,flat_caption_placeholder)
         word_embeddings+=self.embedding_bias
         word_embeddings=tf.reshape(word_embeddings,[self.batch_size,self.n_lstm_steps,-1])
-        # image_embedding=tf.expand_dims(image_embedding,1)
-        # input_embeddings=tf.concat([image_embedding,word_embeddings],axis=1)
-        # rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,time_major=False)
+        #initialize lstm state
         state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
         rnn_output=[]
         with tf.variable_scope("RNN"):
+            # unroll lstm
             for i in range(self.n_lstm_steps): 
                 if i > 0:
                    # if this isn’t the first iteration of our LSTM we need to get the word_embedding corresponding
                    # to the (i-1)th word in our caption 
                     
                     current_embedding = word_embeddings[:,i-1,:]
-                        # current_embedding = tf.nn.embedding_lookup(self.word_embedding, caption_placeholder[:,i-1]) + self.embedding_bias
                 else:
                      #if this is the first iteration of our LSTM we utilize the embedded image as our input 
                     current_embedding = image_embedding
@@ -98,12 +96,15 @@ class Caption_Generator():
                 out, state = self.lstm(current_embedding, state)
 
                 rnn_output.append(tf.expand_dims(out,1))
+        #perform classification of output
         rnn_output=tf.concat(rnn_output,axis=1)
-        # rnn_output=rnn_output[:,:-1,:]
         rnn_output=tf.reshape(rnn_output,[self.batch_size*self.n_lstm_steps,-1])
         encoded_output=tf.matmul(rnn_output,self.word_encoding)+self.word_encoding_bias
+        #get loss
         xentropy=tf.nn.sparse_softmax_cross_entropy_with_logits(logits=encoded_output,labels=tf.reshape(caption_placeholder,[-1]))
+        #mask zero embeddings
         masked_xentropy=tf.multiply(tf.reshape(xentropy,[self.batch_size,-1])[:,1:],mask[:,1:])
+        #average over timeseries length
         total_loss=tf.reduce_sum(masked_xentropy)/tf.reduce_sum(mask[:,1:])
         return total_loss, img,  caption_placeholder, mask
 
@@ -143,6 +144,7 @@ class Caption_Generator():
         self.all_words=all_words
         return img, all_words
     def crop_image(self,x, target_height=227, target_width=227, as_float=True,from_path=True):
+        #image preprocessing to crop and resize image
         image = (x)
         if from_path==True:
             image=cv2.imread(image)
@@ -171,6 +173,7 @@ class Caption_Generator():
         return cv2.resize(resized_image, (target_height, target_width))
 
     def read_image(self,path=None):
+        # parses image from file path and crops/resizes
         if path is None:
             path=test_image_path
         img = crop_image(path, target_height=224, target_width=224)
@@ -181,6 +184,7 @@ class Caption_Generator():
         return img
 
     def get_caption(self,x=None):
+        #gets caption from an image by feeding it through imported VGG16 graph
         feat = read_image(x)
         fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
         generated_word_index= self.sess.run(self.generated_words, feed_dict={self.img:fc7})
@@ -192,9 +196,11 @@ class Caption_Generator():
         generated_sentence = ' '.join(generated_words)
         return (generated_sentence)
 def get_data(annotation_path, feature_path):
+    #load training/validation data
     annotations = pd.read_table(annotation_path, sep='\t', header=None, names=['image', 'caption'])
     return np.load(feature_path,'r'), annotations['caption'].values
 def preProBuildWordVocab(sentence_iterator, word_count_threshold=30): # function from Andre Karpathy's NeuralTalk
+    #process and vectorize training/validation captions
     print('preprocessing %d word vocab' % (word_count_threshold, ))
     word_counts = {}
     nsents = 0
@@ -261,7 +267,7 @@ def train(learning_rate=0.001, continue_training=False):
         np.random.shuffle(index)
         index=index[:(batch_size*10)]
         for start, end in zip( range(0, len(index), batch_size), range(batch_size, len(index), batch_size)):
-
+            #format data batch
             current_feats = feats[index[start:end]]
             current_captions = captions[index[start:end]]
             current_caption_ind = [x for x in map(lambda cap: [wordtoix[word] for word in cap.lower().split(' ')[:-1] if word in wordtoix], current_captions)]

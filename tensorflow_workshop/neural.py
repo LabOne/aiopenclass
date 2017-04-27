@@ -14,17 +14,24 @@ display_step=100
 x = tf.placeholder(tf.float32, shape=[None, 784]) # placeholder for input data (images)
 y = tf.placeholder(tf.float32, shape=[None, 10]) # placeholder for label data
 
+# create variables for Wx+b multiplication
 W1 = tf.Variable(tf.truncated_normal([784, 200], stddev=0.1))
 b1 = tf.Variable(tf.truncated_normal([200], stddev=0.1))
+#perform nonlinearity
 h = tf.sigmoid(tf.matmul(x, W1) + b1)
 
+# create variables for W2h+b2 multiplication
 W2 = tf.Variable(tf.truncated_normal([200, 10], stddev=0.1))
 b2 = tf.Variable(tf.truncated_normal([10], stddev=0.1))
+#get -log probabilities of predictions (logits) 
 y_predict = tf.matmul(h, W2) + b2 #tf.nn.softmax(tf.matmul(h, W2) + b2)
 
+#get classification loss from logits
 cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_predict))
 
-# Declare Global Step
+#Reason for using logits has to do with numerical stability and what to do with zero values
+
+# Declare Global Step (counter)
 global_step=tf.Variable(0,trainable=False)
 # Variable learning rate
 learning_rate=0.5
@@ -55,6 +62,7 @@ sess.run(tf.global_variables_initializer()) # variable initialization step
 
 for i in range(train_steps):
     batch_x, batch_y = data.train.next_batch(batch_size) # collect next batch of input data and labels
+    #perform gradient update and get loss
     _,loss=sess.run([backprop,cross_entropy], feed_dict={x: batch_x, y: batch_y})
     avg_train_loss=avg_train_loss*i/(i+1) + loss/(i+1)
     if i%display_step==0:

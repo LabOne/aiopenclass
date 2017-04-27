@@ -79,8 +79,6 @@ class Caption_Generator():
         # getting an initial LSTM embedding from our image_imbedding
         image_embedding = tf.matmul(img, self.img_embedding) + self.img_embedding_bias
         
-        # setting initial state of our LSTM
-        # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
         flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
         with tf.device('/cpu:0'):
             word_embeddings=tf.nn.embedding_lookup(self.word_embedding,flat_caption_placeholder)
@@ -93,28 +91,6 @@ class Caption_Generator():
             print ([x.name for x in self.var_list])
             self.var_list+=tf.get_collection(tf.GraphKeys.VARIABLES, scope=vs.name)
             print ([x.name for x in self.var_list])
-        # rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,time_major=False)
-        # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
-        # rnn_output=[]
-        # with tf.variable_scope("RNN"):
-        #     for i in range(self.n_lstm_steps): 
-        #         if i > 0:
-        #            # if this isn’t the first iteration of our LSTM we need to get the word_embedding corresponding
-        #            # to the (i-1)th word in our caption 
-                    
-        #             current_embedding = word_embeddings[:,i-1,:]
-        #                 # current_embedding = tf.nn.embedding_lookup(self.word_embedding, caption_placeholder[:,i-1]) + self.embedding_bias
-        #         else:
-        #              #if this is the first iteration of our LSTM we utilize the embedded image as our input 
-        #             current_embedding = image_embedding
-        #         if i > 0: 
-        #             # allows us to reuse the LSTM tensor variable on each iteration
-        #             tf.get_variable_scope().reuse_variables()
-
-        #         out, state = self.lstm(current_embedding, state)
-
-        #         rnn_output.append(tf.expand_dims(out,1))
-        # rnn_output=tf.concat(rnn_output,axis=1)
         rnn_output=rnn_output[:,:-1,:]
         rnn_output=tf.reshape(rnn_output,[self.batch_size*self.n_lstm_steps,-1])
         encoded_output=tf.matmul(rnn_output,self.word_encoding)+self.word_encoding_bias
@@ -128,11 +104,12 @@ class Caption_Generator():
 
         img = tf.placeholder(tf.float32, [self.batch_size, self.dim_in])
         image_embedding = tf.matmul(img, self.img_embedding) + self.img_embedding_bias
-        state = self.lstm.zero_state(batchsize,dtype=tf.float32)
+        
 
         #declare list to hold the words of our generated captions
         all_words = []
         with tf.variable_scope("RNN") as vs:
+            state = self.lstm.zero_state(batchsize,dtype=tf.float32)
             # in the first iteration we have no previous word, so we directly pass in the image embedding
             # and set the `previous_word` to the embedding of the start token ([0]) for the future iterations
             output, state = self.lstm(image_embedding, state)

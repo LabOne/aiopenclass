@@ -25,6 +25,7 @@ class Caption_Generator():
         self.n_words = n_words
         
         if from_image: 
+            #load tensorflow model graph for VGG16
             with open(vgg_path,'rb') as f:
                 fileContent = f.read()
                 graph_def = tf.GraphDef()
@@ -38,6 +39,7 @@ class Caption_Generator():
 
 
     def crop_image(self,x, target_height=227, target_width=227, as_float=True,from_path=True):
+        #resize image
         image = (x)
         if from_path==True:
             image=cv2.imread(image)
@@ -66,6 +68,7 @@ class Caption_Generator():
         return cv2.resize(resized_image, (target_height, target_width))
 
     def read_image(self,path=None):
+        #load and preprocess image
         if path is None:
             path=test_image_path
         img = self.crop_image(path, target_height=224, target_width=224)
@@ -76,6 +79,7 @@ class Caption_Generator():
         return img
 
     def get_feats(self,x=None):
+        #get image featurization from vgg16
         feat=self.read_image(x)
         fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
         return fc7
@@ -92,7 +96,7 @@ if __name__=='__main__':
     out_name=sys.argv[2]
     n_words = len(wordtoix)
     maxlen=15
-    caption_generator = Caption_Generator(dim_in, dim_hidden, dim_embed, batch_size, maxlen+2, n_words, np.zeros(dim_embed).astype(np.float32))
+    caption_generator = Caption_Generator(dim_in, dim_hidden, dim_embed, batch_size, maxlen+2, n_words, np.zeros(dim_embed).astype(np.float32),from_image=True)
     feats=caption_generator.get_feats(in_name)
     feats=feats.reshape([1,dim_embed])
     np.save(out_name,feats)

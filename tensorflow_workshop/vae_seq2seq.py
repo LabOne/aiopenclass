@@ -39,6 +39,8 @@ class Caption_Generator():
 
         self.decoder_embedding_bias = tf.Variable(tf.zeros([dim_embed]), name='embedding_bias')
         
+        #use sonnet to manage complicated variable scoping with multiple RNNs
+
         # declare the encoder LSTM 
         self.lstm = snt.LSTM(dim_hidden,name='caption_encoder')
 
@@ -61,8 +63,6 @@ class Caption_Generator():
         caption_placeholder = tf.placeholder(tf.int32, [self.batch_size, self.n_lstm_steps])
         mask = tf.placeholder(tf.float32, [self.batch_size, self.n_lstm_steps])
         
-        # setting initial state of our LSTM
-        # state = self.lstm.zero_state(self.batch_size, dtype=tf.float32)
         flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
         with tf.device('/cpu:0'):
             word_embeddings=tf.nn.embedding_lookup(self.word_embedding,flat_caption_placeholder)
