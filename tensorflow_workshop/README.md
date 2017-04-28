@@ -10,9 +10,9 @@ This repository requires the following dependencies installable via pip:
 *    keras
 *    nose
 
-**Note**: We use a special tensorflow library from Google Deepmind called sonnet[https://github.com/deepmind/sonnet]. Find the installation instructions on the github repository which we have linked.
+**Note**: We use a special tensorflow library from Google Deepmind called sonnet[https://github.com/deepmind/sonnet]. Find the installation instructions at the github repository which we have linked.
 
-We will be providing compressed docker images during the class vias USB due to the slow internet speed, and will upload the docker image to docker hub after the class. (*Note*: if you already downloaded the docker image from (docker hub)[https://hub.docker.com/r/raulpuric/tf_gmic/] it is no longer current)
+We will be providing compressed docker images during the class vias USB due to the slow internet speed, and have uploaded the docker image to (baidu cloud)[http://pan.baidu.com/s/1deDfH6p]. (*Note*: if you already downloaded the docker image from (docker hub)[https://hub.docker.com/r/raulpuric/tf_gmic/] it is no longer current)
 
 You can load the compressed docker image from the USB into docker via `docker load --input gmic_tf_ws.tar`.
 
