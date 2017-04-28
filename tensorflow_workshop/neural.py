@@ -51,7 +51,7 @@ backprop = tf.train.GradientDescentOptimizer(learning_rate)
 tvars=tf.trainable_variables()
 grads,_=tf.clip_by_global_norm(tf.gradients(cross_entropy,tvars),.1)
 
-backprop= backprop.apply_gradients(zip(grads,vars))
+backprop= backprop.apply_gradients(zip(grads,tvars))
 
 correct = tf.equal(tf.argmax(y, 1), tf.argmax(y_predict, 1))
 accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
