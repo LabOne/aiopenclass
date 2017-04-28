@@ -115,7 +115,8 @@ class Caption_Generator():
         #same setup as `build_model` function
 
         img = tf.placeholder(tf.float32, [self.batch_size, self.dim_in])
-
+        caption_placeholder = tf.placeholder(tf.int32, [self.batch_size, self.n_lstm_steps])
+        mask = tf.placeholder(tf.float32, [self.batch_size, self.n_lstm_steps])
         state = self.lstm.zero_state(batchsize,dtype=tf.float32)
 
         flat_caption_placeholder=tf.reshape(caption_placeholder,[-1,1])
@@ -127,9 +128,9 @@ class Caption_Generator():
         #strip off zero start token
         input_embeddings=word_embeddings[:,1:,:]
         #get sequence length for dynamic unrolling
-        seqlen=tf.sum(mask,axis=-1)
+        seqlen=tf.reduce_sum(mask,axis=-1)
         #subtract one due to zero end token
-        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,seqeuence_lenth=seqlen-1,time_major=False)
+        rnn_output,rnn_state=rnn.dynamic_rnn(self.lstm,input_embeddings,dtype=tf.float32,sequence_length=seqlen-1,time_major=False)
 
         #strip off zero end token
         rnn_output=rnn_output[:,:-1,:]
