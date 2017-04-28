@@ -6,7 +6,7 @@ from keras.layers import Input
 
 # pull MNIST dataset
 from tensorflow.examples.tutorials.mnist import input_data
-data = input_data.read_data_sets('/input/mnist', one_hot=True)
+data = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 # construction phase
 x = tf.placeholder(tf.float32, shape=[None, 784]) # placeholder for input data (images)

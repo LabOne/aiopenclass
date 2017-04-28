@@ -13,7 +13,7 @@ from tensorflow.python.ops import rnn
 from keras.preprocessing import sequence
 from collections import Counter
 test_image_path='./data/acoustic-guitar-player.jpg'
-vgg_path='./data/vgg16.tfmodel'
+vgg_path='./data/vgg16-20160129.tfmodel'
 class Caption_Generator():
     def __init__(self, dim_in, dim_embed, dim_hidden, batch_size, n_lstm_steps, n_words, init_b=None,from_image=False):
 
@@ -185,8 +185,12 @@ class Caption_Generator():
 
     def get_caption(self,x=None):
         #gets caption from an image by feeding it through imported VGG16 graph
-        feat = read_image(x)
-        fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
+        if self.from_image:
+            feat = read_image(x)
+            fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
+        else:
+            fc7=np.load(x,'r')
+        
         generated_word_index= self.sess.run(self.generated_words, feed_dict={self.img:fc7})
         generated_word_index = np.hstack(generated_word_index)
         generated_words = [ixtoword[x] for x in generated_word_index]

@@ -12,8 +12,9 @@ import tensorflow.python.platform
 from tensorflow.python.ops import rnn
 from keras.preprocessing import sequence
 from collections import Counter
+import sys
 test_image_path='./data/acoustic-guitar-player.jpg'
-vgg_path='./data/vgg16.tfmodel'
+vgg_path='./data/vgg16-20160129.tfmodel'
 class Caption_Generator():
     def __init__(self, dim_in, dim_embed, dim_hidden, batch_size, n_lstm_steps, n_words, init_b=None,from_image=False):
 
@@ -34,6 +35,7 @@ class Caption_Generator():
             tf.import_graph_def(graph_def, input_map={"images":self.images})
             graph = tf.get_default_graph()
             self.sess = tf.InteractiveSession(graph=graph)
+            self.graph=graph
 
         self.from_image=from_image
 
@@ -81,7 +83,7 @@ class Caption_Generator():
     def get_feats(self,x=None):
         #get image featurization from vgg16
         feat=self.read_image(x)
-        fc7 = self.sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
+        fc7 = self.sess.run(self.graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={self.images:feat})
         return fc7
 
 dim_embed = 256
@@ -94,7 +96,8 @@ n_epochs = 25
 if __name__=='__main__':
     in_name=sys.argv[1]
     out_name=sys.argv[2]
-    n_words = len(wordtoix)
+    ixtoword = np.load('data/ixtoword.npy').tolist()
+    n_words = len(ixtoword)
     maxlen=15
     caption_generator = Caption_Generator(dim_in, dim_hidden, dim_embed, batch_size, maxlen+2, n_words, np.zeros(dim_embed).astype(np.float32),from_image=True)
     feats=caption_generator.get_feats(in_name)

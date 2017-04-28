@@ -15,7 +15,7 @@ from collections import Counter
 
 import sonnet as snt
 test_image_path='./data/acoustic-guitar-player.jpg'
-vgg_path='./data/vgg16.tfmodel'
+vgg_path='./data/vgg16-20160129.tfmodel'
 test_feat_path='./data/test_feat_path'
 class Caption_Generator():
     def __init__(self, dim_in, dim_embed, dim_hidden, batch_size, n_lstm_steps, n_words, init_b=None,from_image=False):

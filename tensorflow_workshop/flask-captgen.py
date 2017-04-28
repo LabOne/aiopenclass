@@ -3,6 +3,7 @@ from flask import Flask, jsonify, render_template, request
 import numpy as np
 import tensorflow as tf
 from capt_gen import Caption_Generator,test
+import sys
 app = Flask(__name__)
 
 #TODO declare constants for caption generator use
@@ -18,16 +19,17 @@ n_words = len(ixtoword)
 maxlen=15
 captgen=Caption_Generator(dim_in, dim_hidden, dim_embed, batch_size, maxlen+2, n_words, from_image=True)
 print ('initialized')
-captgen.build_generator(maxlen=maxlen,from_image=True)
+captgen.build_generator(maxlen=maxlen,from_image=False)
 print ('gen built')
 saver=tf.train.Saver()
 model_path = './models/tensorflow'
 saved_path=tf.train.latest_checkpoint(model_path)
 saver.restore(captgen.sess, saved_path)
 print('restored')
+feature_name=sys.argv[1]
 
 def getcaption():
-    caption=captgen.get_caption()
+    caption=captgen.get_caption(feature_name)
     return caption
 
 @app.route('/')
